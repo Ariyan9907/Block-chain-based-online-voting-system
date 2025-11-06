@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voting Session History</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        
+        .session-card {
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+        }
+        
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .session-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .session-dates {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .winner-info {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .winner-info .trophy {
+            font-size: 40px;
+        }
+        
+        .winner-details {
+            flex: 1;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .candidates-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .candidates-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .candidates-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .candidates-table tr:hover {
+            background: #f0f0f0;
+        }
+        
+        .toggle-details {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .toggle-details:hover {
+            background: #5568d3;
+        }
+        
+        .details-content {
+            display: none;
+            margin-top: 15px;
+        }
+        
+        .details-content.show {
+            display: block;
+        }
+        
+        .back-button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .back-button:hover {
+            background: #5568d3;
+        }
+        
+        .no-sessions {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a id="backButton" href="#" class="back-button">← Back to Admin Panel</a>
+        <h1>📊 Voting Session History</h1>
+        
+        <div id="loading" class="loading">
+            Loading session history...
+        </div>
+        
+        <div id="sessionsContainer" style="display: none;">
+            <!-- Sessions will be loaded here -->
+        </div>
+        
+        <div id="noSessions" class="no-sessions" style="display: none;">
+            No voting sessions found. Complete and reset a voting session to see history here.
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Get authentication token (try localStorage first, then URL param).
+        // Returns the raw JWT (without the 'Bearer ' prefix) or null.
+        function getAuthToken() {
+            // Check localStorage (login stores token as 'jwtTokenAdmin')
+            const stored = localStorage.getItem('jwtTokenAdmin');
+            if (stored) return stored;
+
+            // Fallback to URL param (may contain 'Bearer <token>' or just the token)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlVal = urlParams.get('Authorization');
+            if (!urlVal) return null;
+            return urlVal.startsWith('Bearer ') ? urlVal.split('Bearer ')[1] : urlVal;
+        }
+
+        // Load all voting sessions
+        async function loadSessions() {
+            try {
+                const token = getAuthToken();
+                if (!token) {
+                    // Redirect to login if no token
+                    window.location.href = '/';
+                    return;
+                }
+                
+                // Normalize token and set back button link with token (include 'Bearer ' prefix for server-side query parsing)
+                const jwt = token;
+                $('#backButton').attr('href', '/admin.html?Authorization=' + encodeURIComponent('Bearer ' + jwt));
+
+                // Include Authorization header when fetching session results
+                const response = await fetch('/api/session-results', {
+                    headers: {
+                        'Authorization': 'Bearer ' + jwt,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                // If unauthorized, try to surface a clearer message
+                if (response.status === 401) {
+                    throw new Error('Unauthorized (401) - please login again.');
+                }
+
+                const data = await response.json();
+                
+                $('#loading').hide();
+                
+                if (data.sessions && data.sessions.length > 0) {
+                    $('#sessionsContainer').show();
+                    displaySessions(data.sessions);
+                } else {
+                    $('#noSessions').show();
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                $('#loading').html('<span style="color:red;">Error loading session history. Please try again.</span>');
+            }
+        }
+        
+        function displaySessions(sessions) {
+            const container = $('#sessionsContainer');
+            container.empty();
+            
+            sessions.forEach((session, index) => {
+                const startDate = new Date(session.start_date).toLocaleString();
+                const endDate = new Date(session.end_date).toLocaleString();
+                const closedDate = new Date(session.closed_at).toLocaleString();
+                
+                const sessionCard = `
+                    <div class="session-card">
+                        <div class="session-header">
+                            <div>
+                                <div class="session-number">Session #${session.session_number}</div>
+                                <div class="session-dates">
+                                    📅 ${startDate} → ${endDate}<br>
+                                    🔒 Closed: ${closedDate}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${session.winner_name !== 'No votes cast' ? `
+                        <div class="winner-info">
+                            <div class="trophy">🏆</div>
+                            <div class="winner-details">
+                                <div style="font-size: 20px; font-weight: bold;">${session.winner_name}</div>
+                                <div style="color: #666;">${session.winner_party}</div>
+                                <div style="font-size: 18px; margin-top: 5px;">
+                                    <strong>${session.winner_votes}</strong> votes
+                                </div>
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="winner-info" style="background: #f0f0f0;">
+                            <div style="width: 100%; text-align: center; color: #666;">
+                                No votes were cast in this session
+                            </div>
+                        </div>
+                        `}
+                        
+                        <div class="stats">
+                            <div class="stat-box">
+                                <div class="stat-value">${session.total_votes}</div>
+                                <div class="stat-label">Total Votes</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${session.total_candidates}</div>
+                                <div class="stat-label">Candidates</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${session.winner_votes > 0 ? 
+                                    ((session.winner_votes / session.total_votes) * 100).toFixed(1) + '%' : 
+                                    '0%'}</div>
+                                <div class="stat-label">Winner %</div>
+                            </div>
+                        </div>
+                        
+                        <button class="toggle-details" onclick="toggleDetails(${index})">
+                            View All Candidates ▼
+                        </button>
+                        
+                        <div id="details-${index}" class="details-content">
+                            <table class="candidates-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Candidate Name</th>
+                                        <th>Party</th>
+                                        <th>Votes</th>
+                                        <th>Percentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${generateCandidateRows(session.candidates_data, session.total_votes)}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                container.append(sessionCard);
+            });
+        }
+        
+        function generateCandidateRows(candidates, totalVotes) {
+            // Sort candidates by vote count (descending)
+            const sortedCandidates = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+            
+            return sortedCandidates.map((candidate, index) => {
+                const percentage = totalVotes > 0 ? 
+                    ((candidate.voteCount / totalVotes) * 100).toFixed(1) : 
+                    '0.0';
+                
+                const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+                
+                return `
+                    <tr>
+                        <td><strong>${rankEmoji}</strong></td>
+                        <td>${candidate.name}</td>
+                        <td>${candidate.party}</td>
+                        <td><strong>${candidate.voteCount}</strong></td>
+                        <td>${percentage}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function toggleDetails(index) {
+            const detailsDiv = $(`#details-${index}`);
+            const button = detailsDiv.prev('.toggle-details');
+            
+            if (detailsDiv.hasClass('show')) {
+                detailsDiv.removeClass('show');
+                button.html('View All Candidates ▼');
+            } else {
+                detailsDiv.addClass('show');
+                button.html('Hide Candidates ▲');
+            }
+        }
+        
+        // Load sessions on page load
+        $(document).ready(function() {
+            loadSessions();
+        });
+    </script>
+</body>
+</html>

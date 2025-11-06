@@ -1,0 +1,1 @@
+ALTER TABLE voters ADD COLUMN full_name VARCHAR(255) NOT NULL;

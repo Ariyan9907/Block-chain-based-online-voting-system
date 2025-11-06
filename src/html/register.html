@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" type="text/css" href="../css/login.css">
+</head>
+<body>
+    <h1 align="center" style="color: azure;">Register as Voter</h1>
+    <div class="container mt-5">
+        <h1>Register</h1>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="full-name"><h3>Full Name</h3></label>
+                <input type="text" class="form-control" id="full-name" name="full-name" placeholder="Full Name" required>
+            </div>
+            <div class="form-group">
+                <label for="mobile-number"><h3>Mobile Number</h3></label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="tel" class="form-control" id="mobile-number" name="mobile-number" placeholder="10-digit mobile number" pattern="[0-9]{10}" maxlength="10" required style="flex: 1;">
+                    <button type="button" class="btn btn-secondary" id="send-otp-btn"><b>Send OTP</b></button>
+                </div>
+            </div>
+            <div class="form-group" id="otp-section" style="display: none;">
+                <label for="otp"><h3>Enter OTP</h3></label>
+                <input type="text" class="form-control" id="otp" name="otp" placeholder="6-digit OTP" pattern="[0-9]{6}" maxlength="6">
+                <p style="color: #4CAF50; margin-top: 5px; font-size: 14px;" id="otp-timer"></p>
+            </div>
+            <div class="form-group">
+                <label for="password"><h3>Password</h3></label>
+                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" id="register-btn" disabled><b>Register</b></button>
+        </form>
+    </div>
+    <script src="../js/register.js" type="module"></script>
+</body>
+</html>
